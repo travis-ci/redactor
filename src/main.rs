@@ -5,7 +5,7 @@ use std::io::Read;
 enum Error {
     ByteError,
     EndOfInput,
-    SecretFound(String)
+    SecretFound(Secret)
 }
 type Secret = String;
 
