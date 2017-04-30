@@ -14,6 +14,6 @@ This text abc123
 
 **To do:**
 - [x] Detect secrets and do not print
-- [ ] Cache secrets as bytes to avoid repeat conversion
+- [ ] Decide on strategy for secrets of different lengths
 - [ ] Print replacement e.g. `[secure]` and carry on scanning
 - [ ] Build for all platforms with [trust](https://github.com/japaric/trust)
