@@ -137,7 +137,7 @@ mod test {
             let mut redactor = Redactor::new(&mut input, &mut output, &mut buf, &mut secrets);
             redactor.scan();
         }
-        assert_eq!(b"[secret] rest of input".to_vec(), output.into_inner());
+        assert_eq!(b"[secure] rest of input".to_vec(), output.into_inner());
     }
 
     #[test]
@@ -152,7 +152,7 @@ mod test {
         }
         let r = output.into_inner();
         println!("{:?}", String::from_utf8(r.clone()));
-        assert_eq!(b"rest of input [secret] ".to_vec(), r);
+        assert_eq!(b"rest of input [secure] ".to_vec(), r);
     }
 
     #[test]
@@ -167,6 +167,6 @@ mod test {
         }
         let r = output.into_inner();
         println!("{:?}", String::from_utf8(r.clone()));
-        assert_eq!(b"input [secret] [secret] put [secret] put input".to_vec(), r);
+        assert_eq!(b"input [secure] [secure] put [secure] put input".to_vec(), r);
     }
 }
