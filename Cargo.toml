@@ -1,5 +1,5 @@
 [package]
-name = "scanner"
+name = "redactor"
 version = "0.0.0"
 authors = ["Joe Corcoran <joe@corcoran.io>"]
 

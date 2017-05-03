@@ -1,4 +1,4 @@
-# Scanner
+# Redactor
 
 Scans stdin for secrets and passes safe chunks of bytes back to stdout. [You need to have Rust installed](https://www.rustup.rs/).
 
