@@ -1,27 +1,25 @@
 use std::io;
-use std::io::Read;
-use std::io::Write;
+use std::io::{Read, Write};
 
 #[derive(Debug)]
 enum Error {
     ByteError,
-    EndOfInput,
-    SecretFound
+    EndOfInput
 }
 
 type Secret = String;
 
-pub struct Scanner<'a> {
-    input: &'a mut io::Stdin,
-    output: &'a mut io::Stdout,
+pub struct Scanner<'a, R: 'a, W: 'a> {
+    input: &'a mut R,
+    output: &'a mut W,
     buf: &'a mut [u8],
     pointer: usize,
     size: usize,
-    secrets: &'a Vec<Secret>
+    secret: &'a Secret
 }
 
-impl<'a> Scanner<'a> {
-    pub fn new(input: &'a mut io::Stdin, output: &'a mut io::Stdout, buf: &'a mut [u8], secrets: &'a Vec<Secret>) -> Scanner<'a> {
+impl<'a, R: 'a + Read, W: 'a + Write> Scanner<'a, R, W> {
+    pub fn new(input: &'a mut R, output: &'a mut W, buf: &'a mut [u8], secret: &'a Secret) -> Scanner<'a, R, W> {
         let size = buf.len();
         Scanner {
             input: input,
@@ -29,21 +27,20 @@ impl<'a> Scanner<'a> {
             buf: buf,
             pointer: 1,
             size: size,
-            secrets: secrets
+            secret: secret
         }
     }
 
     pub fn scan(&mut self) {
         self.setup();
         loop {
-            match self.compare() {
-                Ok(_) => {
-                    continue
-                },
-                Err(e) => {
-                    println!("{:?}", e);
+            match self.maybe_redact() {
+                Ok(_) => continue,
+                Err(Error::EndOfInput) => {
+                    self.emit_tail();
                     break
-                }
+                },
+                Err(_) => break
             }
         }
     }
@@ -53,33 +50,18 @@ impl<'a> Scanner<'a> {
         self.pointer = self.size;
     }
 
-    fn flush(&mut self) {
-        if self.pointer % self.size == 0 {
-            self.output.write(self.buf);
-        }
-    }
-
-    fn compare(&mut self) -> Result<(), Error> {
-        match self.compare_secrets() {
-            Ok(_) => {
-                self.flush();
-                self.advance()
-            }
-            Err(e) => Err(e)
-        }
-    }
-
-    fn compare_secrets(&self) -> Result<(), Error> {
-        for s in self.secrets {
-            // TODO match pattern instead of exact match?
-            if s.as_bytes() == self.buf {
-                return Err(Error::SecretFound)
+    fn maybe_redact(&mut self) -> Result<(), Error> {
+        if self.secret.as_bytes() == self.buf {
+            for i in 0..self.size {
+                self.buf[i] = 95; // _
             }
         }
-        Ok(())
+        self.advance()
     }
 
     fn advance(&mut self) -> Result<(), Error> {
+        self.emit_head();
+
         match self.input.bytes().next() {
             // A byte was read from stdin so we'll shift the buffer
             Some(Ok(byte)) => {
@@ -96,14 +78,23 @@ impl<'a> Scanner<'a> {
             _ => Err(Error::ByteError)
         }
     }
+
+    fn emit_head(&mut self) {
+        // TODO here is where we could drop bytes to obscure the length of the secret
+        self.output.write(&[self.buf[0]]);
+    }
+
+    fn emit_tail(&mut self) {
+        self.output.write(&self.buf[1..(self.size - 1)]);
+    }
 }
 
 fn main() {
     // TODO load the secrets from somewhere on the build machine
-    let secrets = vec!["abc123def4".to_string(), "my-secret!".to_string()];
     let mut stdin = io::stdin();
     let mut stdout = io::stdout();
-    let mut buf = [0; 10]; 
-    let mut scanner = Scanner::new(&mut stdin, &mut stdout, &mut buf, &secrets);
+    let mut buf = [0; 6]; 
+    let secret = String::from("abcdef");
+    let mut scanner = Scanner::new(&mut stdin, &mut stdout, &mut buf, &secret);
     scanner.scan();
 }
