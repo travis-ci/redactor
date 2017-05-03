@@ -5,13 +5,13 @@ mod redactor;
 use redactor::{Redactor, Secret};
 
 fn main() {
-    // TODO load the secrets from somewhere on the build machine
     match env::var("TRAVIS_SECRETS") {
         Ok(value) => {
             let mut secrets = value.split(",").map(|s| String::from(s)).collect::<Vec<Secret>>();
             scan(&mut secrets);
         },
         _ => {
+            // Probably don't want to exit here, but allow the output through
             println!("Environment variable TRAVIS_SECRETS not found");
         }
     }
