@@ -9,7 +9,7 @@ enum Error {
 pub type Secret = String;
 
 const REDACTED_BYTE: u8 = 7; // bell
-const REDACTION_MSG: &'static [u8; 9] = b"[secret] ";
+const REDACTION_MSG: &'static [u8; 9] = b"[secure] ";
 
 pub struct Redactor<'a, R: 'a, W: 'a> {
     input: &'a mut R,
