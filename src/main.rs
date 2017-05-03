@@ -9,7 +9,10 @@ enum Error {
 
 type Secret = String;
 
-pub struct Scanner<'a, R: 'a, W: 'a> {
+const REDACTED: u8 = 7; // bell
+const OUTPUT: u8 = 95;  // underscore
+
+pub struct Redactor<'a, R: 'a, W: 'a> {
     input: &'a mut R,
     output: &'a mut W,
     buf: &'a mut [u8],
@@ -18,10 +21,10 @@ pub struct Scanner<'a, R: 'a, W: 'a> {
     secret: &'a Secret
 }
 
-impl<'a, R: 'a + Read, W: 'a + Write> Scanner<'a, R, W> {
-    pub fn new(input: &'a mut R, output: &'a mut W, buf: &'a mut [u8], secret: &'a Secret) -> Scanner<'a, R, W> {
+impl<'a, R: 'a + Read, W: 'a + Write> Redactor<'a, R, W> {
+    pub fn new(input: &'a mut R, output: &'a mut W, buf: &'a mut [u8], secret: &'a Secret) -> Redactor<'a, R, W> {
         let size = buf.len();
-        Scanner {
+        Redactor {
             input: input,
             output: output,
             buf: buf,
@@ -52,7 +55,7 @@ impl<'a, R: 'a + Read, W: 'a + Write> Scanner<'a, R, W> {
     fn run(&mut self) -> Result<(), Error> {
         if self.secret.as_bytes() == self.buf {
             for i in 0..self.size {
-                self.buf[i] = 7;
+                self.buf[i] = REDACTED;
             }
         }
         self.advance()
@@ -79,13 +82,13 @@ impl<'a, R: 'a + Read, W: 'a + Write> Scanner<'a, R, W> {
 
     fn emit_byte(&mut self, i: usize) {
         let head = self.buf[i];
-        self.redacting = if head == 7 { self.redacting + 1 } else { 0 };
+        self.redacting = if head == REDACTED { self.redacting + 1 } else { 0 };
         match self.redacting {
             0 => {
                 self.output.write(&[head]);
             },
             1...5 => {
-                self.output.write(b"_");
+                self.output.write(&[OUTPUT]);
             },
             _ => {}
         }
@@ -100,13 +103,13 @@ impl<'a, R: 'a + Read, W: 'a + Write> Scanner<'a, R, W> {
 
 fn main() {
     // TODO load the secrets from somewhere on the build machine
-    // TODO chain scanners, one for each secret
+    // TODO chain redactors, one for each secret
     let mut stdin = io::stdin();
     let mut stdout = io::stdout();
     let mut buf = [0; 6]; 
     let secret = String::from("abcdef");
-    let mut scanner = Scanner::new(&mut stdin, &mut stdout, &mut buf, &secret);
-    scanner.scan();
+    let mut redactor = Redactor::new(&mut stdin, &mut stdout, &mut buf, &secret);
+    redactor.scan();
 }
 
 #[cfg(test)]
@@ -115,27 +118,27 @@ mod test {
     use std::io::Cursor;
 
     #[test]
-    fn token_at_start() {
+    fn secret_at_start() {
         let mut input = Cursor::new(&b"abcdefghij rest of input"[..]);
         let mut output = Cursor::new(vec![]);
         let mut buf = [0; 10];
         let secret = String::from("abcdefghij");
         {
-            let mut scanner = Scanner::new(&mut input, &mut output, &mut buf, &secret);
-            scanner.scan();
+            let mut redactor = Redactor::new(&mut input, &mut output, &mut buf, &secret);
+            redactor.scan();
         }
         assert_eq!(b"_____ rest of input".to_vec(), output.into_inner());
     }
 
     #[test]
-    fn token_at_end() {
+    fn secret_at_end() {
         let mut input = Cursor::new(&b"rest of input abcdefghijk"[..]);
         let mut output = Cursor::new(vec![]);
         let mut buf = [0; 11];
         let secret = String::from("abcdefghijk");
         {
-            let mut scanner = Scanner::new(&mut input, &mut output, &mut buf, &secret);
-            scanner.scan();
+            let mut redactor = Redactor::new(&mut input, &mut output, &mut buf, &secret);
+            redactor.scan();
         }
         assert_eq!(b"rest of input _____".to_vec(), output.into_inner());
     }
