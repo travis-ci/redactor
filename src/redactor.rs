@@ -17,17 +17,12 @@ pub struct Redactor<'a, R: 'a, W: 'a> {
     buf: &'a mut [u8],
     size: usize,
     redacting: usize,
-    secrets: &'a mut Vec<Secret>
+    secrets: &'a Vec<Secret>
 }
 
 impl<'a, R: 'a + Read, W: 'a + Write> Redactor<'a, R, W> {
-    pub fn new(input: &'a mut R, output: &'a mut W, buf: &'a mut [u8], secrets: &'a mut Vec<Secret>) -> Redactor<'a, R, W> {
+    pub fn new(input: &'a mut R, output: &'a mut W, buf: &'a mut [u8], secrets: &'a Vec<Secret>) -> Redactor<'a, R, W> {
         let size = buf.len();
-
-        secrets.sort_by(|a, b| {
-            b.as_bytes().len().cmp(&a.as_bytes().len())
-        });
-
         Redactor {
             input: input,
             output: output,
@@ -57,7 +52,7 @@ impl<'a, R: 'a + Read, W: 'a + Write> Redactor<'a, R, W> {
     }
 
     fn run(&mut self) -> Result<(), Error> {
-        for s in self.secrets.iter() {
+        for s in self.secrets {
             let bytes = s.as_bytes();
             if bytes == self.buf[0..bytes.len()].as_ref() {
                 for i in 0..bytes.len() {
@@ -122,51 +117,49 @@ impl<'a, R: 'a + Read, W: 'a + Write> Redactor<'a, R, W> {
     }
 }
 
+pub fn scan<'a, R, W>(mut input: &'a mut R, mut output: &'a mut W, mut secrets: &'a mut Vec<Secret>)
+    where R: 'a + Read, W: 'a + Write
+{
+    secrets.sort_by(|a, b| {
+        b.as_bytes().len().cmp(&a.as_bytes().len())
+    });
+    let max = secrets.get(0).unwrap_or(&String::from("")).as_bytes().len();
+    let mut buf = vec![0; max];
+    let mut redactor = Redactor::new(&mut input, &mut output, &mut buf, &mut secrets);
+    redactor.scan();
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     use std::io::Cursor;
 
+    fn assert_output(mut secrets: &mut Vec<Secret>, input: &[u8], expected: &[u8]) {
+        let mut input = Cursor::new(&input[..]);
+        let mut output = Cursor::new(vec![]);
+        {
+            scan(&mut input, &mut output, &mut secrets);
+        }
+        assert_eq!(expected.to_vec(), output.into_inner());
+    }
+
     #[test]
     fn secret_at_start() {
-        let mut input = Cursor::new(&b"abcdefghij rest of input"[..]);
-        let mut output = Cursor::new(vec![]);
-        let mut buf = [0; 10];
         let mut secrets = vec![String::from("abcdefghij")];
-        {
-            let mut redactor = Redactor::new(&mut input, &mut output, &mut buf, &mut secrets);
-            redactor.scan();
-        }
-        assert_eq!(b"[secure] rest of input".to_vec(), output.into_inner());
+        assert_output(&mut secrets, b"abcdefghij rest of input", b"[secure] rest of input");
     }
 
     #[test]
     fn secret_at_end() {
-        let mut input = Cursor::new(&b"rest of input abcdefghijk"[..]);
-        let mut output = Cursor::new(vec![]);
-        let mut buf = [0; 11];
         let mut secrets = vec![String::from("abcdefghijk")];
-        {
-            let mut redactor = Redactor::new(&mut input, &mut output, &mut buf, &mut secrets);
-            redactor.scan();
-        }
-        let r = output.into_inner();
-        println!("{:?}", String::from_utf8(r.clone()));
-        assert_eq!(b"rest of input [secure] ".to_vec(), r);
+        assert_output(&mut secrets, b"rest of input abcdefghijk", b"rest of input [secure] ");
     }
 
     #[test]
     fn overlapping_secrets() {
-        let mut input = Cursor::new(&b"input abcxxxxxxxx abc input input xxxabcxxx input input"[..]);
-        let mut output = Cursor::new(vec![]);
         let mut secrets = vec![String::from("abcxxxxxxxx"), String::from("xxxabcxxx"), String::from("abc")];
-        let mut buf = [0; 11]; // buf must be same size as longest secret
-        {
-            let mut redactor = Redactor::new(&mut input, &mut output, &mut buf, &mut secrets);
-            redactor.scan();
-        }
-        let r = output.into_inner();
-        println!("{:?}", String::from_utf8(r.clone()));
-        assert_eq!(b"input [secure] [secure] put [secure] put input".to_vec(), r);
+        assert_output(&mut secrets,
+                      b"input abcxxxxxxxx abc input input xxxabcxxx input input",
+                      b"input [secure] [secure] put [secure] put input");
     }
 }
