@@ -9,7 +9,7 @@ enum Error {
 pub type Secret = String;
 
 const REDACTED_BYTE: u8 = 7; // bell
-const REDACTION_MSG: &'static [u8; 9] = b"[secure] ";
+const REDACTION_MSG: &'static [u8; 8] = b"[secure]";
 
 pub struct Redactor<'a, R: 'a, W: 'a> {
     input: &'a mut R,
@@ -39,6 +39,7 @@ impl<'a, R: 'a + Read, W: 'a + Write> Redactor<'a, R, W> {
             match self.run() {
                 Ok(_) => continue,
                 Err(Error::EndOfInput) => {
+                    self.redact_tail();
                     self.emit_tail();
                     break
                 },
@@ -48,10 +49,15 @@ impl<'a, R: 'a + Read, W: 'a + Write> Redactor<'a, R, W> {
     }
 
     fn setup(&mut self) {
-        self.input.read_exact(&mut self.buf);
+        let _ = self.input.read_exact(&mut self.buf);
     }
 
     fn run(&mut self) -> Result<(), Error> {
+        self.redact_head();
+        self.advance()
+    }
+
+    fn redact_head(&mut self) {
         for s in self.secrets {
             let bytes = s.as_bytes();
             if bytes == self.buf[0..bytes.len()].as_ref() {
@@ -60,7 +66,23 @@ impl<'a, R: 'a + Read, W: 'a + Write> Redactor<'a, R, W> {
                 }
             }
         }
-        self.advance()
+    }
+
+    fn redact_tail(&mut self) {
+        for s in self.secrets {
+            let bytes = s.as_bytes();
+            let mut redact = None;
+            for (i, w) in self.buf.windows(bytes.len()).enumerate() {
+                if bytes == w {
+                    redact = Some(i);
+                }
+            }
+            if let Some(start) = redact {
+                for i in start..self.size {
+                    self.buf[i] = REDACTED_BYTE;
+                }
+            }
+        }
     }
 
     fn advance(&mut self) -> Result<(), Error> {
@@ -87,7 +109,7 @@ impl<'a, R: 'a + Read, W: 'a + Write> Redactor<'a, R, W> {
     }
 
     fn is_redacting(&self) -> bool {
-        self.redacting > 0 && self.redacting < self.size
+        self.redacting > 1 && self.redacting < self.size
     }
 
     fn emit_byte(&mut self, i: usize) {
@@ -95,14 +117,15 @@ impl<'a, R: 'a + Read, W: 'a + Write> Redactor<'a, R, W> {
 
         if self.not_redacting() {
             if head == REDACTED_BYTE {
-                // output message
-                self.output.write(REDACTION_MSG);
+                // output redaction message and start
+                let _ = self.output.write(REDACTION_MSG);
                 self.redacting -= 1;
             } else {
-                self.output.write(&[head]);
+                // output byte
+                let _ = self.output.write(&[head]);
             }
         } else if self.is_redacting() {
-            // drop byte
+            // drop byte and continue
             self.redacting -= 1;
         } else {
             // reset
@@ -140,7 +163,10 @@ mod test {
         {
             scan(&mut input, &mut output, &mut secrets);
         }
-        assert_eq!(expected.to_vec(), output.into_inner());
+        let e = expected.to_vec();
+        let a = output.into_inner();
+        println!("expected {:?} actual {:?}", String::from_utf8(e.clone()), String::from_utf8(a.clone()));
+        assert_eq!(e, a);
     }
 
     #[test]
@@ -152,7 +178,13 @@ mod test {
     #[test]
     fn secret_at_end() {
         let mut secrets = vec![String::from("abcdefghijk")];
-        assert_output(&mut secrets, b"rest of input abcdefghijk", b"rest of input [secure] ");
+        assert_output(&mut secrets, b"rest of input abcdefghijk", b"rest of input [secure]");
+    }
+
+    #[test]
+    fn short_secret_at_end() {
+        let mut secrets = vec![String::from("aaaaa"), String::from("bbb")];
+        assert_output(&mut secrets, b"input aaaaa input bbb", b"input [secure] input [secure]");
     }
 
     #[test]
@@ -160,6 +192,6 @@ mod test {
         let mut secrets = vec![String::from("abcxxxxxxxx"), String::from("xxxabcxxx"), String::from("abc")];
         assert_output(&mut secrets,
                       b"input abcxxxxxxxx abc input input xxxabcxxx input input",
-                      b"input [secure] [secure] put [secure] put input");
+                      b"input [secure] [secure]nput [secure]nput input");
     }
 }
