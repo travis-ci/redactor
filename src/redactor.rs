@@ -20,7 +20,7 @@ pub struct Redactor<'a, R: 'a, W: 'a> {
     secrets: &'a Vec<Secret>
 }
 
-impl<'a, R: 'a + Read, W: 'a + Write> Redactor<'a, R, W> {
+impl<'a, R, W> Redactor<'a, R, W> where R: 'a + Read, W: 'a + Write {
     pub fn new(input: &'a mut R, output: &'a mut W, buf: &'a mut [u8], secrets: &'a Vec<Secret>) -> Redactor<'a, R, W> {
         let size = buf.len();
         Redactor {
