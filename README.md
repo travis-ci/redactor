@@ -17,4 +17,4 @@ This text [secure] has no secrets
 - [x] Detect secrets and do not print
 - [x] Decide on strategy for secrets of different lengths
 - [x] Print replacement e.g. `[secure]` and carry on scanning
-- [ ] Build for all platforms with [trust](https://github.com/japaric/trust)
+- [x] Build for all platforms with [trust](https://github.com/japaric/trust)
