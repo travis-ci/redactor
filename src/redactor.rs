@@ -162,6 +162,12 @@ mod test {
     }
 
     #[test]
+    fn short_secret_at_start() {
+        let mut secrets = vec![String::from("aaaaa"), String::from("bbb")];
+        assert_output(&mut secrets, b"bbb xxxxxx", b"[secure]xxxxx");
+    }
+
+    #[test]
     fn secret_at_end() {
         let mut secrets = vec![String::from("abcdefghijk")];
         assert_output(&mut secrets, b"rest of input abcdefghijk", b"rest of input [secure]");
