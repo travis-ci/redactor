@@ -16,7 +16,7 @@ main() {
     test -f Cargo.lock || cargo generate-lockfile
 
     cross build --release --target $TARGET
-
+    strip target/$TARGET/release/redactor
     cp target/$TARGET/release/redactor $stage/
 
     cd $stage

@@ -34,9 +34,12 @@ impl<'a, R: 'a + Read, W: 'a + Write> Redactor<'a, R, W> {
     }
 
     pub fn scan(&mut self) {
-        self.setup();
+        let _ = self.input.read_exact(&mut self.buf);
+
         loop {
-            match self.run() {
+            self.redact_head();
+
+            match self.advance() {
                 Ok(_) => continue,
                 Err(Error::EndOfInput) => {
                     self.redact_tail();
@@ -46,15 +49,6 @@ impl<'a, R: 'a + Read, W: 'a + Write> Redactor<'a, R, W> {
                 Err(_) => break
             }
         }
-    }
-
-    fn setup(&mut self) {
-        let _ = self.input.read_exact(&mut self.buf);
-    }
-
-    fn run(&mut self) -> Result<(), Error> {
-        self.redact_head();
-        self.advance()
     }
 
     fn redact_head(&mut self) {
@@ -85,6 +79,33 @@ impl<'a, R: 'a + Read, W: 'a + Write> Redactor<'a, R, W> {
         }
     }
 
+    fn emit_byte(&mut self, i: usize) {
+        let head = self.buf[i];
+
+        if self.redacting == self.size {
+            if head == REDACTED_BYTE {
+                // output redaction message and start
+                let _ = self.output.write(REDACTION_MSG);
+                self.redacting -= 1;
+            } else {
+                // output byte
+                let _ = self.output.write(&[head]);
+            }
+        } else if self.redacting == 1 {
+            // reset
+            self.redacting = self.size;
+        } else {
+            // drop byte and continue
+            self.redacting -= 1;
+        }
+    }
+
+    fn emit_tail(&mut self) {
+        for i in 1..self.size {
+            self.emit_byte(i);
+        }
+    }
+
     fn advance(&mut self) -> Result<(), Error> {
         self.emit_byte(0);
 
@@ -101,41 +122,6 @@ impl<'a, R: 'a + Read, W: 'a + Write> Redactor<'a, R, W> {
             None => Err(Error::EndOfInput),
             // There was an error reading the next byte
             _ => Err(Error::ByteError)
-        }
-    }
-
-    fn not_redacting(&self) -> bool {
-        self.redacting == self.size
-    }
-
-    fn is_redacting(&self) -> bool {
-        self.redacting > 1 && self.redacting < self.size
-    }
-
-    fn emit_byte(&mut self, i: usize) {
-        let head = self.buf[i];
-
-        if self.not_redacting() {
-            if head == REDACTED_BYTE {
-                // output redaction message and start
-                let _ = self.output.write(REDACTION_MSG);
-                self.redacting -= 1;
-            } else {
-                // output byte
-                let _ = self.output.write(&[head]);
-            }
-        } else if self.is_redacting() {
-            // drop byte and continue
-            self.redacting -= 1;
-        } else {
-            // reset
-            self.redacting = self.size;
-        }
-    }
-
-    fn emit_tail(&mut self) {
-        for i in 1..self.size {
-            self.emit_byte(i);
         }
     }
 }
