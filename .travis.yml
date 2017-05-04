@@ -34,3 +34,16 @@ branches:
   only:
     - /^v\d+\.\d+\.\d+.*$/
     - master
+
+before_deploy:
+  - sh ci/before_deploy.sh
+
+deploy:
+  api_key:
+    secure: "e8sdlQT2ls/HAzxNAs8eEAZreIKtPY5x8QvvSDbtO5zya1pCG/CzrYYDUB8t6Qrft1ZW/vEraof872FxWds05XBx3xOfBzj3fTnk5bWACk3481l7I3ZDnnRY+srKwHWRjOQ4nzLEDp795q6IjgxICyn+To9QSPCrkeb/cDDP33trm0w2OIhchIdT1H6hrsnFYI2SZJqEdPu2SoFMIy0xrgvArlBvyyfWbZK4kuisTA08H7gNC0BoJC7RGGpclPug5ob4MHVHClCv4kN7//d6hnzeQeTbzxuGo2FcxNQ17TDpC55fC9DSECt+0nVB38aA5C6aJBZjONccDOyMbXkpfX1Hs4AOrVU8ddZf/H383dCiLx2a/1t9wc1RuiTtgVnsyl6LB7zKaw6kwzgoqtKaAJMEk+r+7UlypASE/I1fO7x1Lk3CkZXhqUvZXDLebK1MoDKHhO2QdIOnmskdmWQ5Ty9J24LtysgiRCl94rnqLygUVJKhMSNe9A7VOwndRTpN2WL0EpAyhup4wjFzOtJH9Y8EVMjRTlngFZSGm0MgDLR20zl+EnXQPub3+4i1hlqK/S1KnXxz21bKvvWa4rnN0rH4amoPKk2v4uQTmoLmq/u4qgsGic+KIz3+8ZebZdLL4Y5JSl4F7SNmsmPzBXWoMmwa3cOb/8KZRHE8Yn1QuVw="
+  file_glob: true
+  file: $CRATE_NAME-$TRAVIS_TAG-$TARGET.*
+  on:
+    tags: true
+  provider: releases
+  skip_cleanup: true
