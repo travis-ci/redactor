@@ -1,6 +1,6 @@
 # Redactor
 
-[![Build Status](https://travis-ci.com/travis-pro/redactor.svg?token=zpR1nMgjBRgfNzxhNdmS&branch=master)](https://travis-ci.com/travis-pro/redactor)
+[![Build Status](https://travis-ci.org/travis-ci/redactor.svg?branch=master)](https://travis-ci.org/travis-ci/redactor)
 
 Scans stdin for secrets and passes safe chunks of bytes back to stdout. [You need to have Rust installed](https://www.rustup.rs/).
 
