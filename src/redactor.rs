@@ -86,10 +86,12 @@ impl<'a, R, W> Redactor<'a, R, W> where R: 'a + Read, W: 'a + Write {
             if head == REDACTED_BYTE {
                 // output redaction message and start
                 let _ = self.output.write(REDACTION_MSG);
+                self.output.flush().unwrap();
                 self.redacting -= 1;
             } else {
                 // output byte
                 let _ = self.output.write(&[head]);
+                self.output.flush().unwrap();
             }
         } else if self.redacting == 1 {
             // reset
