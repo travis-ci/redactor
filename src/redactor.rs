@@ -140,6 +140,20 @@ pub fn scan<'a, R, W>(mut input: &'a mut R, mut output: &'a mut W, mut secrets: 
     redactor.scan();
 }
 
+pub fn noop<'a, R, W>(mut input: &'a mut R, mut output: &'a mut W) where R: 'a + Read, W: 'a + Write {
+    let mut buf = [0; 1];
+    loop {
+        match input.read(&mut buf) {
+            Ok(0) => break,
+            Ok(_) => {
+                output.write(&buf);
+                output.flush().unwrap();
+            },
+            Err(error) => panic!("Byte error: {:?}", error)
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -155,6 +169,16 @@ mod test {
         let a = output.into_inner();
         println!("expected {:?} actual {:?}", String::from_utf8(e.clone()), String::from_utf8(a.clone()));
         assert_eq!(e, a);
+    }
+
+    #[test]
+    fn noop_does_not_redact() {
+        let mut input = Cursor::new(&b"This is my non-secret input"[..]);
+        let mut output = Cursor::new(vec![]);
+        {
+            noop(&mut input, &mut output);
+        }
+        assert_eq!(b"This is my non-secret input".to_vec(), output.into_inner());
     }
 
     #[test]
