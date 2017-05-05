@@ -146,7 +146,7 @@ pub fn noop<'a, R, W>(mut input: &'a mut R, mut output: &'a mut W) where R: 'a +
         match input.read(&mut buf) {
             Ok(0) => break,
             Ok(_) => {
-                output.write(&buf);
+                let _ = output.write(&buf);
                 output.flush().unwrap();
             },
             Err(error) => panic!("Byte error: {:?}", error)
