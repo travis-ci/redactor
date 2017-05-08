@@ -1,11 +1,12 @@
 [package]
 name = "redactor"
-version = "0.1.0-pre4"
+version = "0.1.0-pre5"
 authors = ["Joe Corcoran <joe@corcoran.io>"]
 
 [dependencies]
 pty = "0.2"
 exec = "0.2"
+siphasher = "0.2"
 
 [profile.release]
 lto = true
