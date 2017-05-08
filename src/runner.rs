@@ -90,6 +90,8 @@ impl<'a> Runner<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::thread::sleep;
+    use std::time::Duration;
 
     #[test]
     fn hash() {
@@ -103,7 +105,10 @@ mod test {
     fn write_script() {
         let cmd = "ruby stream.rb";
         let mut runner = Runner::new(cmd);
-        let _ = runner.write_script();
+        let result = runner.write_script();
+        assert_eq!((), result.unwrap());
+        sleep(Duration::from_millis(500));
+
         match File::open("2392779401433226153.sh") {
             Ok(mut file) => {
                 let mut contents = String::new();
