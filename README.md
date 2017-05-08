@@ -12,7 +12,8 @@ This text has no secrets
 $ cargo run -- "echo 'This text password has no secrets'"
 This text [secure] has no secrets
 
-$ cargo run == "exit 1"
+$ cargo run == "ruby -e 'raise \"password\"'"
+-e:1:in `<main>': [secure] (RuntimeError)
 $ echo $?
 1
 ```
