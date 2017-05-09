@@ -1,9 +1,9 @@
 use exec;
-use siphasher::sip::SipHasher;
-use std::fs::{self, File};
-use std::hash::Hasher;
+use std::fs::File;
 use std::io::{self, Read, Write};
+use std::path::PathBuf;
 use std::os::unix::fs::PermissionsExt;
+use tempdir::TempDir;
 
 #[derive(Debug)]
 pub enum Error {
@@ -11,21 +11,18 @@ pub enum Error {
     ExecError(exec::Error)
 }
 
-pub struct Runner<'a> {
+pub struct Wrapper<'a> {
     cmd: &'a str,
-    hash: u64,
-    status: Option<i32>
+    status: Option<i32>,
+    tmpdir: &'a TempDir
 }
 
-impl<'a> Runner<'a> {
-    pub fn new(cmd: &'a str) -> Runner<'a> {
-        let mut hasher = SipHasher::new();
-        hasher.write(cmd.as_bytes());
-
-        Runner {
+impl<'a> Wrapper<'a> {
+    pub fn new(cmd: &'a str, tmpdir: &'a TempDir) -> Wrapper<'a> {
+        Wrapper {
             cmd: cmd,
-            hash: hasher.finish(),
-            status: None
+            status: None,
+            tmpdir: tmpdir
         }
     }
 
@@ -40,7 +37,7 @@ impl<'a> Runner<'a> {
     }
 
     pub fn write_script(&mut self) -> io::Result<()> {
-        let script = format!("#!/usr/bin/env bash\n{}\nprintf $? > {}.status", self.cmd, self.hash);
+        let script = format!("#!/usr/bin/env bash\n{}\nprintf $? > {:?}", self.cmd, self.status_name());
         match File::create(&self.script_name()) {
             Ok(mut file) => {
                 let _ = file.write_all(script.as_bytes());
@@ -67,56 +64,43 @@ impl<'a> Runner<'a> {
         }
     }
 
-    pub fn cleanup(&self) {
-        let _ = fs::remove_file(&self.script_name());
-        let _ = fs::remove_file(&self.status_name());
+    pub fn script_name(&self) -> PathBuf {
+        let mut pb = PathBuf::new();
+        pb.push(self.tmpdir.path());
+        pb.set_file_name("wrapper.sh");
+        pb
     }
 
-    pub fn cleanup_status(&mut self) -> Option<i32> {
-        let status = self.status();
-        self.cleanup();
-        status
-    }
-
-    fn script_name(&self) -> String {
-        format!("{}.sh", self.hash)
-    }
-
-    fn status_name(&self) -> String {
-        format!("{}.status", self.hash)
+    pub fn status_name(&self) -> PathBuf {
+        let mut pb = PathBuf::new();
+        pb.push(self.tmpdir.path());
+        pb.set_file_name("wrapper.status");
+        pb
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::thread::sleep;
-    use std::time::Duration;
-
-    #[test]
-    fn hash() {
-        let cmd = "ruby stream.rb";
-        let runner = Runner::new(cmd);
-        assert_eq!(2392779401433226153, runner.hash);
-        runner.cleanup();
-    }
 
     #[test]
     fn write_script() {
         let cmd = "ruby stream.rb";
-        let mut runner = Runner::new(cmd);
-        let result = runner.write_script();
-        assert_eq!((), result.unwrap());
-        sleep(Duration::from_millis(500));
+        let tmpdir = TempDir::new("redactor").unwrap();
+        let mut wrapper = Wrapper::new(cmd, &tmpdir);
+        let result = wrapper.write_script();
+        assert!(result.is_ok());
 
-        match File::open("2392779401433226153.sh") {
+        match File::open(wrapper.script_name()) {
             Ok(mut file) => {
                 let mut contents = String::new();
                 let _ = file.read_to_string(&mut contents);
-                assert_eq!(String::from("#!/usr/bin/env bash\nruby stream.rb\nprintf $? > 2392779401433226153.status"), contents);
+                assert_eq!(
+                    format!("#!/usr/bin/env bash\nruby stream.rb\nprintf $? > {:?}", wrapper.status_name()),
+                    contents
+                );
             },
             _ => panic!("Script not found")
         }
-        runner.cleanup();
     }
 }

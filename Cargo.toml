@@ -6,7 +6,7 @@ authors = ["Joe Corcoran <joe@corcoran.io>"]
 [dependencies]
 pty = "0.2"
 exec = "0.2"
-siphasher = "0.2"
+tempdir = "0.3"
 
 [profile.release]
 lto = true
