@@ -28,7 +28,7 @@ impl<'a, R, W> Redactor<'a, R, W> where R: 'a + Read, W: 'a + Write {
             output: output,
             buf: buf,
             size: size,
-            redacting: size,
+            redacting: size * 2,
             secrets: secrets
         }
     }
@@ -82,7 +82,7 @@ impl<'a, R, W> Redactor<'a, R, W> where R: 'a + Read, W: 'a + Write {
     fn emit_byte(&mut self, i: usize) {
         let head = self.buf[i];
 
-        if self.redacting == self.size {
+        if self.redacting == self.size * 2 {
             if head == REDACTED_BYTE {
                 // output redaction message and start
                 let _ = self.output.write(REDACTION_MSG);
@@ -95,7 +95,7 @@ impl<'a, R, W> Redactor<'a, R, W> where R: 'a + Read, W: 'a + Write {
             }
         } else if self.redacting == 1 {
             // reset
-            self.redacting = self.size;
+            self.redacting = self.size * 2;
         } else {
             // drop byte and continue
             self.redacting -= 1;
@@ -184,13 +184,13 @@ mod test {
     #[test]
     fn secret_at_start() {
         let mut secrets = vec![String::from("abcdefghij")];
-        assert_output(&mut secrets, b"abcdefghij rest of input", b"[secure] rest of input");
+        assert_output(&mut secrets, b"abcdefghij rest of input", b"[secure]nput");
     }
 
     #[test]
     fn short_secret_at_start() {
         let mut secrets = vec![String::from("aaaaa"), String::from("bbb")];
-        assert_output(&mut secrets, b"bbb xxxxxx", b"[secure]xxxxx");
+        assert_output(&mut secrets, b"bbb xxxxxx yyyyyy", b"[secure] yyyyyy");
     }
 
     #[test]
@@ -202,14 +202,14 @@ mod test {
     #[test]
     fn short_secret_at_end() {
         let mut secrets = vec![String::from("aaaaa"), String::from("bbb")];
-        assert_output(&mut secrets, b"input aaaaa input bbb", b"input [secure] input [secure]");
+        assert_output(&mut secrets, b"input aaaaa input bbb", b"input [secure]t [secure]");
     }
 
     #[test]
     fn overlapping_secrets() {
         let mut secrets = vec![String::from("abcxxxxxxxx"), String::from("xxxabcxxx"), String::from("abc")];
         assert_output(&mut secrets,
-                      b"input abcxxxxxxxx abc input input xxxabcxxx input input",
-                      b"input [secure] [secure]nput [secure]nput input");
+                      b"input abcxxxxxxxx abc input input xxxabcxxx input input abc input input input input",
+                      b"input [secure]input [secure][secure]input");
     }
 }
