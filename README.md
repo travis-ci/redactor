@@ -29,7 +29,7 @@ $ echo $?
 
 ## Development
 
-Install Rust nightly via [rustup](https://www.rustup.rs/).
+Install Rust stable via [rustup](https://www.rustup.rs/).
 
 Run the tests:
 
