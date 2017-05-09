@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/travis-ci/redactor.svg?branch=master)](https://travis-ci.org/travis-ci/redactor)
 
-Scans stdin for secrets and passes safe chunks of bytes back to stdout.
+Scans stdin and stderr for secrets and passes safe chunks of bytes back to stdout.
 
 When no secrets are set, the output is passed straight through, with no attempt at scanning.
 
