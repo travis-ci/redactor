@@ -1,11 +1,13 @@
 [package]
 name = "redactor"
-version = "0.1.0-pre5"
+version = "0.1.0-pre6"
 authors = ["Joe Corcoran <joe@corcoran.io>"]
 
 [dependencies]
-pty = "0.2"
+base64 = "0.5"
 exec = "0.2"
+getopts = "0.2"
+pty = "0.2"
 tempdir = "0.3"
 
 [profile.release]

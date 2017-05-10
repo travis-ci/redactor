@@ -1,12 +1,11 @@
 use std::io::{Read, Write};
+use secret::Secret;
 
 #[derive(Debug)]
 enum Error {
     ByteError,
     EndOfInput
 }
-
-pub type Secret = String;
 
 const REDACTED_BYTE: u8 = 7; // bell
 const REDACTION_MSG: &'static [u8; 8] = b"[secure]";

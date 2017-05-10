@@ -1,38 +1,38 @@
-extern crate exec;
+extern crate getopts;
 extern crate pty;
 extern crate tempdir;
 
 mod redactor;
+mod secret;
 mod wrapper;
 
+use getopts::Options;
 use pty::fork::Fork;
-use redactor::{noop, scan, Secret};
-use std::{env, ffi, io, process};
+use redactor::{noop, scan};
+use secret::{decode, Secret};
+use std::{env, io, process};
 use tempdir::TempDir;
 use wrapper::Wrapper;
 
 fn main() {
+    let (script, mut secrets) = parse_command();
+
     let fork = Fork::from_ptmx().unwrap_or_else(|error| panic!("Error creating pty: {:?}", error));
-    let cmd = get_cmd();
     let tmpdir = TempDir::new("redactor").unwrap_or_else(|error| panic!("Could not create tmpdir: {}", error));
-    let mut wrapper = Wrapper::new(cmd.to_str().unwrap(), &tmpdir);
+    let mut wrapper = Wrapper::new(&script, &tmpdir);
 
     // Parent branch handles scanning
     if let Some(mut pty) = fork.is_parent().ok() {
-        match env::var("TRAVIS_SECRETS") {
+        if !secrets.is_empty() {
             // Found secrets, starting to scan input
-            Ok(ref value) if !value.is_empty() => {
-                let mut secrets = value.split(",").map(|s| String::from(s)).collect::<Vec<Secret>>();
-                scan(&mut pty, &mut io::stdout(), &mut secrets);
-                let _ = fork.wait();
-                process::exit(wrapper.status().unwrap_or(0));
-            },
+            scan(&mut pty, &mut io::stdout(), &mut secrets);
+            let _ = fork.wait();
+            process::exit(wrapper.status().unwrap_or(0));
+        } else {
             // No secrets, sending input through noop
-            _ => {
-                noop(&mut pty, &mut io::stdout());
-                let _ = fork.wait();
-                process::exit(wrapper.status().unwrap_or(0));
-            }
+            noop(&mut pty, &mut io::stdout());
+            let _ = fork.wait();
+            process::exit(wrapper.status().unwrap_or(0));
         }
     // Child branch execs command, replacing current process
     } else {
@@ -40,8 +40,45 @@ fn main() {
     }
 }
 
-fn get_cmd() -> ffi::OsString {
-    let mut args = env::args_os().skip(1);
-    if args.len() == 0 { panic!("No command given"); }
-    args.next().unwrap()
+fn parse_command() -> (String, Vec<Secret>) {
+    let mut args = env::args();
+    let command = args.next().unwrap();
+    let args = args.collect::<Vec<String>>();
+
+    let mut options = Options::new();
+    options.optopt("r", "run", "The script to be run", "./build.sh");
+    options.optmulti("s", "secret", "Secret to be redacted", "SECRET");
+    options.optflag("h", "help", "Show help");
+
+    let matches = options.parse(&args[..]).unwrap_or_else(|error| {
+        panic!("Could not parse options: {:?}", error)
+    });
+
+    // Show instructions and exit
+    if matches.opt_present("h") {
+        println!("{}", options.short_usage(&command));
+        process::exit(0);
+    }
+
+    // Script is mandatory
+    if !matches.opt_present("r") {
+        panic!("Script not given");
+    }
+
+    // Pull secrets from env var
+    let mut secrets = match env::var("TRAVIS_SECRETS") {
+        Ok(ref value) => {
+            value.split(",").flat_map(|s| decode(s)).collect::<Vec<Secret>>()
+        },
+        _ => vec![]
+    };
+
+    // Pull secrets from opts
+    if matches.opt_present("s") {
+        secrets.extend(matches.opt_strs("s").iter().flat_map(|s| {
+            decode(s)
+        }).collect::<Vec<Secret>>());
+    }
+
+    (matches.opt_str("r").unwrap(), secrets)
 }

@@ -1,4 +1,5 @@
-use exec;
+extern crate exec;
+
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::path::PathBuf;
