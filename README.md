@@ -47,17 +47,17 @@ $ cargo test
 Run the command (this builds a debug release in ./target/debug and then executes it):
 
 ```
-$ cargo run -- "echo hello"
+$ cargo run -- -r "echo hello"
 ```
 
 You can also run it against fixtures, which test streaming input.
 
 ```
-$ (export TRAVIS_SECRETS=google; cargo run -- "./fixtures/build.sh")
+$ (export TRAVIS_SECRETS=google; cargo run -- -r "./fixtures/build.sh")
 ```
 
 ```
-$ (export TRAVIS_SECRETS=google; cargo run -- "ruby ./fixtures/stream.rb")
+$ (export TRAVIS_SECRETS=google; cargo run -- -r "ruby ./fixtures/stream.rb")
 ```
 
 ## Releasing
