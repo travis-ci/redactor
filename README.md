@@ -7,28 +7,28 @@ Scans stdin and stderr for secrets and passes safe chunks of bytes back to stdou
 When no secrets are set, the output is passed straight through, with no attempt at scanning.
 
 ```
-$ cargo run -- -r "echo 'Expose my password'"
+$ redactor -r "echo 'Expose my password'"
 Expose my password
 ```
 
 When secrets are set, they are scanned and redacted. Secrets should be set in a sub-process to avoid leaking.
 
 ```
-$ (export TRAVIS_SECRETS=ascii:password; cargo run -- -r "echo 'Expose my password'")
+$ (export TRAVIS_SECRETS=ascii:password; redactor -r "echo 'Expose my password'")
 Expose my [secure]
 ```
 
 Secrets can be set with the option `-s` too. They can be ASCII or Base64-encoded and tagged as such.
 
 ```
-$ (cargo run -- -r "echo 'Expose my password'" -s ascii:Ex -s base64:bXk=)
+$ redactor -r "echo 'Expose my password'" -s ascii:Ex -s base64:bXk=
 [secure]se [secure]assword
 ```
 
 The exit code is preserved too.
 
 ```
-$ (export TRAVIS_SECRETS=ascii:password; cargo run -- -r "ruby -e 'raise \"password\"'")
+$ (export TRAVIS_SECRETS=ascii:password; redactor -r "ruby -e 'raise \"password\"'")
 -e:1:in `<main>': [secure] (RuntimeError)
 $ echo $?
 1
